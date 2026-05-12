@@ -68,11 +68,11 @@
 //   }
 // }, 5 * 60 * 1000); // run every 5 minutes
 
-
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import cors from "cors";
 import connectDB from "./config/db.js";
 
 import authRoutes from "./routes/authRoutes.js";
@@ -89,34 +89,18 @@ connectDB();
 
 const app = express();
 
-// Manual CORS Fix
-app.use((req, res, next) => {
-  res.header(
-    "Access-Control-Allow-Origin",
-    "https://stitching-with-love-ecommerce-site.vercel.app"
-  );
-
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-
-  res.header(
-    "Access-Control-Allow-Credentials",
-    "true"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
+// Proper CORS Configuration
+app.use(
+  cors({
+    origin: "https://stitching-with-love-ecommerce-site.vercel.app",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+  })
+);
 
 // Parse JSON bodies
 app.use(express.json());
@@ -142,14 +126,19 @@ if (
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
-  const frontendDist = path.resolve(__dirname, "../frontend/dist");
+  const frontendDist = path.resolve(
+    __dirname,
+    "../frontend/dist"
+  );
 
   app.use(express.static(frontendDist));
 
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
 
-    res.sendFile(path.join(frontendDist, "index.html"));
+    res.sendFile(
+      path.join(frontendDist, "index.html")
+    );
   });
 }
 
@@ -171,7 +160,9 @@ const THIRTY_MIN_MS = 30 * 60 * 1000;
 
 setInterval(async () => {
   try {
-    const cutoff = new Date(Date.now() - THIRTY_MIN_MS);
+    const cutoff = new Date(
+      Date.now() - THIRTY_MIN_MS
+    );
 
     const res = await Order.updateMany(
       {
@@ -179,7 +170,9 @@ setInterval(async () => {
         createdAt: { $lt: cutoff },
       },
       {
-        $set: { paymentStatus: "cancelled" },
+        $set: {
+          paymentStatus: "cancelled",
+        },
       }
     );
 
@@ -189,6 +182,9 @@ setInterval(async () => {
       );
     }
   } catch (e) {
-    console.error("Auto-cancel job failed:", e.message);
+    console.error(
+      "Auto-cancel job failed:",
+      e.message
+    );
   }
 }, 5 * 60 * 1000);
