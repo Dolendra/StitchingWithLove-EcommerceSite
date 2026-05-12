@@ -1,0 +1,28 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- This SVG combines a needle and thread into a simple, elegant logo. -->
+  <style>
+    .needle {
+      fill: #333;
+      transition: fill 0.3s ease;
+    }
+    .thread {
+      stroke: #007bff;
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke 0.3s ease;
+    }
+    svg:hover .needle {
+      fill: #007bff;
+    }
+    svg:hover .thread {
+      stroke: #333;
+    }
+  </style>
+  <title>Needle and Thread Logo</title>
+  <!-- Needle Shape -->
+  <path class="needle" d="M85.3553 4.64466C87.308 2.69199 90.4738 2.69199 92.4264 4.64466L95.3553 7.57359C97.308 9.52621 97.308 12.692 95.3553 14.6447L24.6447 85.3553C22.692 87.308 19.5262 87.308 17.5736 85.3553L14.6447 82.4264C12.692 80.4738 12.692 77.308 14.6447 75.3553L85.3553 4.64466Z"/>
+  <!-- Needle Eye -->
+  <circle cx="85" cy="15" r="3" fill="white"/>
+  <!-- Thread Path -->
+  <path class="thread" d="M5 95C15 70 40 50 70 30"/>
+</svg>
