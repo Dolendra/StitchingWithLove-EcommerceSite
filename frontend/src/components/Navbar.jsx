@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Menu, X, ShoppingCart } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo-preview.svg";
 
 const Navbar = () => {
   const { getItemCount, items } = useCart();
@@ -15,7 +16,7 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="inline-flex items-center gap-x-3 font-bold text-purple-700">
           <img
-            src="./src/assets/logo-preview.svg"
+            src={logo}
             alt="Stitching With Love Logo"
             className="h-8 md:h-10"
           />
