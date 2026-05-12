@@ -18,7 +18,7 @@ const BookAppointment = () => {
     e.preventDefault();
 
     // Your WhatsApp Number (with country code, without +)
-    const phoneNumber = "916309092794";
+    const phoneNumber = "919494241849";
 
     const text = `New Appointment Request 👗
     --------------------------
