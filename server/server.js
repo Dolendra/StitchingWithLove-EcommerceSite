@@ -98,10 +98,10 @@ app.use(
   })
 );
 
-// Body parser
+// Parse JSON bodies
 app.use(express.json());
 
-// Test route
+// Test Route
 app.get("/", (req, res) => {
   res.send("Backend Running");
 });
