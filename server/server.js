@@ -21,7 +21,7 @@ const app = express();
 app.use(cors({ 
   origin: [
     "http://localhost:5173", 
-    "https://Stitchingwithlove.vercel.app/"
+    "https://stitching-with-love-ecommerce-site.vercel.app"
   ], 
   credentials: true 
 }));
