@@ -25,6 +25,9 @@ app.use(cors({
   ], 
   credentials: true 
 }));
+
+app.options("*", cors());
+
 app.use(express.json()); // parse JSON bodies
 
 app.use("/api/auth", authRoutes);
