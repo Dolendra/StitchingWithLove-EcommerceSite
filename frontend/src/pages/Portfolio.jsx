@@ -1,49 +1,64 @@
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+
+const ITEMS = [
+  { src: "/images/bridal.avif", title: "Bridal", category: "Bridal", fabric: "Silk" },
+  { src: "/images/partywear.webp", title: "Party wear", category: "Party", fabric: "Georgette" },
+  { src: "/images/ethnicwear.webp", title: "Ethnic blouse", category: "Blouse", fabric: "Cotton silk" },
+  { src: "/images/home3.webp", title: "Studio finish", category: "Custom", fabric: "Mixed" },
+];
+
 const Portfolio = () => {
-  // Sample works (replace with real images later)
-  const works = [
-    { id: 1, title: "Bridal Gown", img: "/images/bridal.avif" },
-    { id: 2, title: "Designer Blouse", img: "/images/full-sleeve-blouse-1.jpg" },
-    { id: 3, title: "Kids Wear", img: "/images/kids.avif" },
-    { id: 4, title: "Western Dress", img: "/images/western.webp" },
-    { id: 5, title: "Ethnic Wear", img: "/images/ethnicwear.webp" },
-    { id: 6, title: "Party Outfit", img: "/images/partywear.webp" },
-  ];
+  const [active, setActive] = useState(null);
 
   return (
-    <div className="pt-20">
-      {/* Header */}
-      <section className="text-center py-12 bg-purple-50">
-        <h2 className="text-3xl md:text-4xl font-bold text-purple-700">
-          My Portfolio
-        </h2>
-        <p className="mt-2 text-gray-600 max-w-2xl mx-auto">
-          A collection of my tailoring works – from elegant bridal dresses to
-          everyday stylish outfits.
-        </p>
-      </section>
+    <div className="page-shell section-pad pt-24 max-w-7xl mx-auto">
+      <h1 className="font-display text-4xl md:text-5xl text-[var(--accent)] mb-3">Portfolio</h1>
+      <p className="text-[var(--ink-muted)] mb-10 max-w-lg">
+        A selection of recent work. Interested in a similar look? Customize it or book a consultation.
+      </p>
+      <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+        {ITEMS.map((item, i) => (
+          <button
+            key={i}
+            type="button"
+            className="block w-full break-inside-avoid overflow-hidden group text-left"
+            onClick={() => setActive(item)}
+          >
+            <img
+              src={item.src}
+              alt={item.title}
+              className="w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          </button>
+        ))}
+      </div>
 
-      {/* Gallery */}
-      <section className="py-12 px-6 md:px-16 bg-white">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-          {works.map((work) => (
-            <div
-              key={work.id}
-              className="rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition"
-            >
-              <img
-                src={work.img}
-                alt={work.title}
-                className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
-              />
-              <div className="p-4 text-center">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {work.title}
-                </h3>
-              </div>
+      {active && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          onClick={() => setActive(null)}
+        >
+          <div
+            className="bg-[var(--bg)] max-w-lg w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={active.src} alt="" className="w-full aspect-[3/4] object-cover" />
+            <h3 className="font-display text-2xl mt-4 text-[var(--accent)]">{active.title}</h3>
+            <p className="text-sm text-[var(--ink-muted)] mt-1">
+              {active.category} · {active.fabric}
+            </p>
+            <div className="flex gap-3 mt-6">
+              <Link to="/custom" className="btn-primary" onClick={() => setActive(null)}>
+                Customize similar
+              </Link>
+              <Link to="/book" className="btn-secondary" onClick={() => setActive(null)}>
+                Book appointment
+              </Link>
             </div>
-          ))}
+          </div>
         </div>
-      </section>
+      )}
     </div>
   );
 };

@@ -1,151 +1,141 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { ordersAPI, paymentsAPI } from '../services/api';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ordersAPI } from "../services/api";
+import { useToast } from "../context/ToastContext";
+import { ORDER_STATUS_LABELS } from "../config/brand";
+import OrderTimeline from "../components/OrderTimeline";
+
+const CANCELABLE = ["placed", "measurement_confirmed", "fabric_selected"];
 
 const Orders = () => {
-  const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const location = useLocation();
+  const [confirmId, setConfirmId] = useState(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const confirmIfNeeded = async () => {
-      const params = new URLSearchParams(location.search);
-      const sessionId = params.get('session_id');
-      const orderId = params.get('orderId');
-      if (isAuthenticated && sessionId && orderId) {
-        try { await paymentsAPI.confirm({ session_id: sessionId, orderId }); } catch {}
-      }
-    };
-
-    const fetchOrders = async () => {
-      if (!isAuthenticated) return;
-      
-      try {
-        const response = await ordersAPI.getMyOrders();
-        setOrders(response.data);
-      } catch (error) {
-        console.error('Failed to fetch orders:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    confirmIfNeeded().finally(fetchOrders);
-  }, [isAuthenticated, location.search]);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-4">Please Login</h2>
-          <p className="text-gray-600">You need to be logged in to view your orders.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading orders...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const getStatusBadge = (paymentStatus) => {
-    const map = {
-      paid: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      failed: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-700',
-    };
-    return map[paymentStatus] || 'bg-gray-100 text-gray-800';
-  };
-
-  const handleCancel = async (id) => {
-    if (!window.confirm('Cancel this order?')) return;
+  const load = async () => {
     try {
-      await ordersAPI.cancel(id);
-      const refreshed = await ordersAPI.getMyOrders();
-      setOrders(refreshed.data);
-    } catch (e) {
-      console.error('Cancel failed', e);
-      alert('Unable to cancel order');
+      const res = await ordersAPI.getMyOrders();
+      setOrders(res.data);
+    } catch {
+      toast("Could not load orders", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">My Orders</h2>
+  useEffect(() => {
+    load();
+  }, []);
 
-      {orders.filter(o => o.paymentStatus === 'paid').length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600">No orders found.</p>
+  const cancel = async (id) => {
+    try {
+      await ordersAPI.cancel(id);
+      toast("Order cancelled", "success");
+      setConfirmId(null);
+      load();
+    } catch (e) {
+      toast(e.response?.data?.message || "Unable to cancel", "error");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="page-shell section-pad max-w-3xl mx-auto space-y-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="skeleton h-40" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-shell section-pad pt-24 max-w-3xl mx-auto">
+      <h1 className="font-display text-4xl text-[var(--accent)] mb-8">My Orders</h1>
+      {orders.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="font-display text-2xl text-[var(--accent)]">No orders yet</p>
+          <p className="text-[var(--ink-muted)] mt-2">Your next favorite outfit starts here.</p>
+          <Link to="/products" className="btn-primary mt-6 inline-flex">
+            Explore Collection
+          </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          {orders.filter(o => o.paymentStatus === 'paid').map((order) => (
-            <div key={order._id} className="bg-white rounded-xl shadow-sm overflow-hidden border">
-              <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
+        <div className="space-y-6">
+          {orders.map((order) => (
+            <article key={order._id} className="surface rounded-2xl p-5 md:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
-                  <div className="text-sm text-gray-500">Order ID</div>
-                  <div className="text-lg font-semibold">#{order._id.slice(-8)}</div>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    {order.orderNumber || `#${order._id.slice(-8)}`}
+                  </p>
+                  <Link
+                    to={`/orders/${order._id}`}
+                    className="font-display text-2xl text-[var(--accent)] hover:underline"
+                  >
+                    {ORDER_STATUS_LABELS[order.orderStatus] || order.orderStatus}
+                  </Link>
+                  <p className="text-sm text-[var(--ink-muted)] mt-1">
+                    {new Date(order.createdAt).toLocaleString()} · ₹
+                    {order.totalAmount?.toLocaleString("en-IN")}
+                  </p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(order.paymentStatus)}`}>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    order.orderStatus === "cancelled"
+                      ? "bg-red-50 text-red-700"
+                      : "bg-[var(--bg-soft)] text-[var(--accent)]"
+                  }`}
+                >
                   {order.paymentStatus}
-                </div>
+                </span>
               </div>
-
-              <div className="px-6 py-4">
-                <div className="space-y-2">
-                  {order.items.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className="text-gray-700">{item.name} × {item.quantity}</span>
-                      <span className="font-medium">₹{(item.price || 0) * item.quantity}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between pt-4 mt-4 border-t">
-                  <div className="text-sm text-gray-500">Placed on {new Date(order.createdAt).toLocaleString()}</div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">Total</div>
-                    <div className="text-lg font-semibold">₹{order.totalAmount}</div>
-                  </div>
-                </div>
-
-                {order.tracking && order.tracking.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <h4 className="font-semibold mb-2">Tracking</h4>
-                    <div className="space-y-1 text-sm">
-                      {order.tracking.map((t, idx) => (
-                        <div key={idx} className="flex justify-between">
-                          <span className="text-gray-700">{t.status.replaceAll('_',' ')}</span>
-                          <span className="text-gray-500">{new Date(t.at).toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {order.paymentStatus === 'paid' && (
-                  <div className="pt-4 mt-4 border-t flex justify-end">
-                    <button onClick={() => handleCancel(order._id)} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Cancel Order</button>
-                  </div>
+              <div className="max-h-48 overflow-hidden">
+                <OrderTimeline orderStatus={order.orderStatus} tracking={order.tracking} />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <Link to={`/orders/${order._id}`} className="btn-secondary text-sm py-2 px-4">
+                  View details
+                </Link>
+                {order.paymentStatus === "paid" && CANCELABLE.includes(order.orderStatus) && (
+                  <button
+                    type="button"
+                    className="text-sm text-red-700 underline"
+                    onClick={() => setConfirmId(order._id)}
+                  >
+                    Cancel order
+                  </button>
                 )}
               </div>
-            </div>
+            </article>
           ))}
+        </div>
+      )}
+
+      {confirmId && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg)] rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="font-display text-2xl text-[var(--accent)]">Cancel order?</h3>
+            <p className="text-sm text-[var(--ink-muted)] mt-2">
+              This cannot be undone. Production has not started yet.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button type="button" className="btn-secondary flex-1" onClick={() => setConfirmId(null)}>
+                Keep order
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex-1 bg-red-700"
+                onClick={() => cancel(confirmId)}
+              >
+                Cancel order
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-export default Orders
- 
+export default Orders;

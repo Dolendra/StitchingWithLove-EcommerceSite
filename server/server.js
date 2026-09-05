@@ -1,73 +1,3 @@
-// import express from "express";
-// import path from "path";
-// import { fileURLToPath } from "url";
-// import dotenv from "dotenv";
-// import cors from "cors";
-// import connectDB from "./config/db.js";
-
-// import authRoutes from "./routes/authRoutes.js";
-// import productRoutes from "./routes/productRoutes.js";
-// import cartRoutes from "./routes/cartRoutes.js";
-// import orderRoutes from "./routes/orderRoutes.js";
-// import appointmentRoutes from "./routes/appointmentRoutes.js";
-// import paymentsRoutes from "./routes/paymentsRoutes.js";
-
-// import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
-
-// dotenv.config();
-// connectDB();
-
-// const app = express();
-// app.use(cors({ 
-//   origin: [
-//     "http://localhost:5173", 
-//     "https://stitching-with-love-ecommerce-site.vercel.app"
-//   ], 
-//   credentials: true 
-// }));
-
-// app.use(express.json()); // parse JSON bodies
-
-// app.use("/api/auth", authRoutes);
-// app.use("/api/products", productRoutes);
-// app.use("/api/cart", cartRoutes);
-// app.use("/api/orders", orderRoutes);
-// app.use("/api/appointments", appointmentRoutes);
-// app.use("/api/payments", paymentsRoutes);
-
-// // Serve frontend build in production (only for Render deployment)
-// if (process.env.NODE_ENV === "production" && process.env.SERVE_FRONTEND === "true") {
-//   const __filename = fileURLToPath(import.meta.url);
-//   const __dirname = path.dirname(__filename);
-//   const frontendDist = path.resolve(__dirname, "../frontend/dist");
-//   app.use(express.static(frontendDist));
-//   app.get("*", (req, res, next) => {
-//     if (req.path.startsWith("/api")) return next();
-//     res.sendFile(path.join(frontendDist, "index.html"));
-//   });
-// }
-
-// app.use(notFound);
-// app.use(errorHandler);
-
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// // Auto-cancel pending orders older than 30 minutes (simple scheduler)
-// import Order from "./models/Order.js";
-// const THIRTY_MIN_MS = 30 * 60 * 1000;
-// setInterval(async () => {
-//   try {
-//     const cutoff = new Date(Date.now() - THIRTY_MIN_MS);
-//     const res = await Order.updateMany({ paymentStatus: "pending", createdAt: { $lt: cutoff } }, { $set: { paymentStatus: "cancelled" } });
-//     if (res.modifiedCount) {
-//       console.log(`Auto-cancelled ${res.modifiedCount} pending orders`);
-//     }
-//   } catch (e) {
-//     console.error("Auto-cancel job failed:", e.message);
-//   }
-// }, 5 * 60 * 1000); // run every 5 minutes
-
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -81,72 +11,76 @@ import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
 import paymentsRoutes from "./routes/paymentsRoutes.js";
+import measurementRoutes from "./routes/measurementRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import Order from "./models/Order.js";
 
 dotenv.config();
 connectDB();
 
 const app = express();
 
-// Proper CORS Configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_BASE_URL,
+  "https://stitching-with-love-ecommerce-site.vercel.app",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "https://stitching-with-love-ecommerce-site.vercel.app",
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // allow preview deployments; tighten in production if needed
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Parse JSON bodies
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
-// Test Route
-app.get("/", (req, res) => {
-  res.send("Backend Running");
+app.get("/", (_req, res) => {
+  res.send("Stitching With Love API");
 });
 
-// API Routes
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/measurements", measurementRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/reviews", reviewRoutes);
 
-// Serve frontend build in production (optional)
-if (
-  process.env.NODE_ENV === "production" &&
-  process.env.SERVE_FRONTEND === "true"
-) {
+if (process.env.NODE_ENV === "production" && process.env.SERVE_FRONTEND === "true") {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-
-  const frontendDist = path.resolve(
-    __dirname,
-    "../frontend/dist"
-  );
-
+  const frontendDist = path.resolve(__dirname, "../frontend/dist");
   app.use(express.static(frontendDist));
-
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-
-    res.sendFile(
-      path.join(frontendDist, "index.html")
-    );
+    res.sendFile(path.join(frontendDist, "index.html"));
   });
 }
 
-// Error middleware
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server
 const PORT = process.env.PORT || 5000;
 
 process.on("uncaughtException", (err) => {
@@ -161,38 +95,18 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Auto-cancel pending orders older than 30 minutes
-import Order from "./models/Order.js";
-
 const THIRTY_MIN_MS = 30 * 60 * 1000;
-
 setInterval(async () => {
   try {
-    const cutoff = new Date(
-      Date.now() - THIRTY_MIN_MS
-    );
-
+    const cutoff = new Date(Date.now() - THIRTY_MIN_MS);
     const res = await Order.updateMany(
-      {
-        paymentStatus: "pending",
-        createdAt: { $lt: cutoff },
-      },
-      {
-        $set: {
-          paymentStatus: "cancelled",
-        },
-      }
+      { paymentStatus: "pending", createdAt: { $lt: cutoff } },
+      { $set: { paymentStatus: "cancelled", orderStatus: "cancelled" } }
     );
-
     if (res.modifiedCount) {
-      console.log(
-        `Auto-cancelled ${res.modifiedCount} pending orders`
-      );
+      console.log(`Auto-cancelled ${res.modifiedCount} pending orders`);
     }
   } catch (e) {
-    console.error(
-      "Auto-cancel job failed:",
-      e.message
-    );
+    console.error("Auto-cancel job failed:", e.message);
   }
 }, 5 * 60 * 1000);

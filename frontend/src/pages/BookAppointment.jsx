@@ -1,148 +1,153 @@
-import { useState } from "react";
-import { Calendar, MessageCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { appointmentsAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+
+const SERVICES = ["blouse", "dress", "bridal", "kids", "alteration", "measurement", "consultation", "fitting"];
 
 const BookAppointment = () => {
-  const [formData, setFormData] = useState({
-    name: "",
+  const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
+  const [slots, setSlots] = useState([]);
+  const [booked, setBooked] = useState([]);
+  const [created, setCreated] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    name: user?.name || "",
     phone: "",
-    service: "",
-    date: "",
+    service: "consultation",
+    preferredDate: "",
+    preferredSlot: "10:00",
+    purpose: "",
+    measurementRequired: false,
     message: "",
   });
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (!form.preferredDate) return;
+    appointmentsAPI
+      .slots(form.preferredDate)
+      .then((r) => {
+        setSlots(r.data.slots || []);
+        setBooked(r.data.booked || []);
+      })
+      .catch(() => {});
+  }, [form.preferredDate]);
+
+  const onChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-
-    // Your WhatsApp Number (with country code, without +)
-    const phoneNumber = "919494241849";
-
-    const text = `New Appointment Request 👗
-    --------------------------
-    👤 Name: ${formData.name}
-    📞 Phone: ${formData.phone}
-    🛠 Service: ${formData.service}
-    📅 Date: ${formData.date}
-    💬 Message: ${formData.message}`;
-
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
-      text
-    )}`;
-
-    window.open(whatsappUrl, "_blank");
+    if (!isAuthenticated) {
+      toast("Please sign in to book", "info");
+      return;
+    }
+    if (!form.phone || !form.preferredDate) {
+      toast("Phone and date are required", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await appointmentsAPI.create(form);
+      setCreated(res.data);
+      toast("Appointment requested", "success");
+    } catch (err) {
+      toast(err.response?.data?.message || "Booking failed", "error");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (created) {
+    return (
+      <div className="page-shell section-pad pt-24 max-w-lg mx-auto text-center">
+        <h1 className="font-display text-4xl text-[var(--accent)]">Appointment requested</h1>
+        <p className="mt-4 text-[var(--ink-muted)]">
+          Reference <strong>#{created._id.slice(-6).toUpperCase()}</strong>
+        </p>
+        <p className="mt-2 text-sm">
+          {created.service} · {new Date(created.preferredDate).toLocaleDateString()} ·{" "}
+          {created.preferredSlot}
+        </p>
+        <p className="mt-2 text-sm text-[var(--ink-muted)]">Status: {created.status}</p>
+        <Link to="/account" className="btn-primary mt-8 inline-flex">
+          Go to account
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="pt-20">
-      {/* Header */}
-      <section className="text-center py-12 bg-purple-50">
-        <h2 className="text-3xl md:text-4xl font-bold text-purple-700">
-          Book an Appointment
-        </h2>
-        <p className="mt-2 text-gray-600 max-w-2xl mx-auto">
-          Fill in your details below to schedule an appointment with us.
+    <div className="page-shell section-pad pt-24 max-w-xl mx-auto">
+      <h1 className="font-display text-4xl text-[var(--accent)] mb-2">Book an appointment</h1>
+      <p className="text-[var(--ink-muted)] mb-8">
+        Choose a service, date and slot. We will confirm shortly.
+      </p>
+      {!isAuthenticated && (
+        <p className="mb-6 text-sm">
+          <Link to="/login" className="underline text-[var(--accent)]">
+            Sign in
+          </Link>{" "}
+          to submit a booking.
         </p>
-      </section>
-
-      {/* Form Section */}
-      <section className="py-12 px-6 md:px-16 bg-white">
-        <form
-          onSubmit={handleSubmit}
-          className="max-w-3xl mx-auto bg-purple-50 p-8 rounded-2xl shadow-lg"
-        >
-          {/* Name */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2">
-              Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Phone */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Service */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2">
-              Service
-            </label>
-            <select
-              name="service"
-              value={formData.service}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="">Select a Service</option>
-              <option value="Bridal Wear">Bridal Wear</option>
-              <option value="Designer Blouse">Designer Blouse</option>
-              <option value="Kids Wear">Kids Wear</option>
-              <option value="Party Wear">Party Wear</option>
-              <option value="Alterations">Alterations</option>
-            </select>
-          </div>
-
-          {/* Date */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2">
-              Preferred Date
-            </label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Message */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2">
-              Message (Optional)
-            </label>
-            <textarea
-              name="message"
-              value={formData.message}
-              onChange={handleChange}
-              rows="4"
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            className="flex items-center justify-center gap-2 w-full bg-purple-600 text-white py-3 rounded-xl font-medium hover:bg-purple-700 transition"
-          >
-            <MessageCircle className="w-5 h-5" />
-            Book via WhatsApp
-          </button>
-        </form>
-      </section>
+      )}
+      <form onSubmit={submit} className="space-y-4">
+        <input className="input-field" name="name" placeholder="Name" value={form.name} onChange={onChange} />
+        <input className="input-field" name="phone" placeholder="Phone" value={form.phone} onChange={onChange} required />
+        <select className="input-field" name="service" value={form.service} onChange={onChange}>
+          {SERVICES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <input
+          className="input-field"
+          type="date"
+          name="preferredDate"
+          value={form.preferredDate}
+          onChange={onChange}
+          required
+        />
+        <select className="input-field" name="preferredSlot" value={form.preferredSlot} onChange={onChange}>
+          {(slots.length ? slots : ["10:00", "11:00", "12:00", "14:00", "15:00", "16:00"]).map((s) => (
+            <option key={s} value={s} disabled={booked.includes(s)}>
+              {s} {booked.includes(s) ? "(booked)" : ""}
+            </option>
+          ))}
+        </select>
+        <input
+          className="input-field"
+          name="purpose"
+          placeholder="Purpose (e.g. bridal consultation)"
+          value={form.purpose}
+          onChange={onChange}
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="measurementRequired"
+            checked={form.measurementRequired}
+            onChange={onChange}
+          />
+          Measurement required
+        </label>
+        <textarea
+          className="input-field"
+          name="message"
+          rows={3}
+          placeholder="Additional notes"
+          value={form.message}
+          onChange={onChange}
+        />
+        <button type="submit" className="btn-primary w-full" disabled={loading || !isAuthenticated}>
+          {loading ? "Submitting…" : "Request appointment"}
+        </button>
+      </form>
     </div>
   );
 };
