@@ -1,65 +1,50 @@
-# Tailoring Web — Stitching with Love
+# Stitching With Love — Made-to-Measure Fashion Ecommerce
 
-A full-stack web application for a tailoring and alterations business. It combines a **marketing site** (about, services, portfolio, contact), **appointment booking**, an **online shop** (catalog, cart, checkout), **user accounts**, an **admin area** for orders and appointments, and a **virtual try-on** canvas powered by Fabric.js.
+**v1.0** full-stack platform for a bespoke tailoring business: design selection, personalized measurements, customization, Stripe checkout, production tracking, fittings, alterations, wishlist, reorder, and reviews.
 
-If you have never seen this codebase before, read this document top to bottom once; it explains what each part does and how to run everything locally or in production.
-
----
-
-## Table of contents
-
-1. [What this project does](#what-this-project-does)
-2. [High-level architecture](#high-level-architecture)
-3. [Repository layout](#repository-layout)
-4. [Technology stack](#technology-stack)
-5. [Prerequisites](#prerequisites)
-6. [Local development](#local-development)
-7. [Environment variables](#environment-variables)
-8. [How the app fits together](#how-the-app-fits-together)
-9. [Backend API overview](#backend-api-overview)
-10. [Payments (Stripe)](#payments-stripe)
-11. [User roles and admin](#user-roles-and-admin)
-12. [Background jobs](#background-jobs)
-13. [Deployment](#deployment)
-14. [Troubleshooting](#troubleshooting)
-15. [Optional / legacy notes](#optional--legacy-notes)
+> Feature scope is **frozen** after local QA. Next milestones are deploy → production smoke → demo/interview prep.
 
 ---
 
-## What this project does
+## Positioning
 
-| Area | Description |
-|------|-------------|
-| **Public pages** | Home, About, Portfolio, Services, Contact — typical business presence. |
-| **Shop** | Browse products (`/products`), add to cart, go to checkout. Products are stored in MongoDB and managed by admins. |
-| **Cart** | Server-backed cart per logged-in user (not guest checkout in code as written). |
-| **Checkout** | Uses **Stripe Checkout** (redirect). Creates a provisional order, then confirms payment on return. |
-| **Orders** | Users see paid orders; admins see all orders and can update delivery-style status and notes. |
-| **Auth** | Register, login, JWT stored in the browser; profile endpoint for the current user. |
-| **Appointments** | Logged-in users submit booking requests; admins list them and set status (`pending` / `confirmed`). |
-| **Try-on** | `/tryon` — upload a person image and garment image on an HTML canvas (Fabric.js) for a simple visual preview (client-side only). |
-| **Dashboards** | `/admin` for admins; `/user` for regular users (UI routes exist alongside `/orders`). |
+A made-to-measure fashion ecommerce platform that manages the complete customer journey:
+
+**Discover → Customize → Measure → Pay → Produce → Fit / Alter → Review → Reorder**
 
 ---
 
-## High-level architecture
+## Retention loop
 
 ```text
-┌─────────────────┐     HTTPS / REST      ┌─────────────────┐
-│  React (Vite)   │ ◄──────────────────► │  Express API     │
-│  frontend/      │   JSON + JWT        │  server/         │
-└────────┬────────┘                     └────────┬─────────┘
-         │                                       │
-         │  Vite dev: /api proxied to            │  Mongoose
-         │  http://localhost:5000                ▼
-         │                               ┌───────────────┐
-         └──────────────────────────────►│  MongoDB      │
-                                         └───────────────┘
+Saved measurements
+        ↓
+Wishlist
+        ↓
+Reorder
+        ↓
+Customization + notes
+        ↓
+Order tracking
+        ↓
+Alterations
+        ↓
+Reviews
+        ↓
+Return
 ```
 
-- **Frontend** (`frontend/`): React 19, React Router, Tailwind CSS 4, Axios, Framer Motion, Fabric.js.
-- **Backend** (`server/`): Express 5, MongoDB via Mongoose, JWT auth, Stripe for payments.
-- **Database**: MongoDB (local or [MongoDB Atlas](https://www.mongodb.com/atlas)).
+---
+
+## Tech stack
+
+| Layer | Stack |
+|-------|--------|
+| Frontend | React 19, Vite 7, React Router 7, Tailwind CSS 4, Framer Motion, Axios |
+| Backend | Express 5, Mongoose 8, JWT + bcrypt |
+| Database | MongoDB |
+| Payments | Stripe Checkout (INR) |
+| Deploy target | Frontend → Vercel · Backend → Render · DB → Atlas |
 
 ---
 
@@ -67,264 +52,273 @@ If you have never seen this codebase before, read this document top to bottom on
 
 ```text
 tailoring-web/
-├── README.md                 ← This file (project overview)
-├── DEPLOYMENT.md             ← Step-by-step Vercel + Render + Atlas + Stripe
-├── frontend/                 ← React SPA (Vite)
+├── README.md
+├── DEPLOYMENT.md
+├── frontend/                 # React SPA (Vite)
 │   ├── src/
-│   │   ├── App.jsx           ← All routes
-│   │   ├── components/     ← Navbar, Footer, cards, TryOnCanvas, etc.
-│   │   ├── context/         ← AuthContext, CartContext
-│   │   ├── pages/           ← One file per screen
-│   │   ├── services/
-│   │   │   └── api.js       ← Axios client + API helpers
-│   │   └── index.css
-│   ├── env.example          ← Copy to .env.local for Vite vars
-│   ├── vite.config.js       ← Dev server + /api → localhost:5000 proxy
-│   └── vercel.json          ← SPA rewrites for Vercel
-└── server/                   ← REST API
-    ├── server.js            ← App entry: CORS, routes, optional static SPA
-    ├── config/
-    │   └── db.js            ← Mongo connection
-    ├── controllers/         ← Route logic
-    ├── middleware/          ← JWT (protect), admin guard, errors
-    ├── models/              ← User, Product, Cart, Order, Appointment
-    ├── routes/              ← Mounted under /api/...
-    ├── utils/               ← Stripe (and Razorpay helper — see legacy note)
-    ├── env.example          ← Copy to .env
-    └── render.yaml          ← Example Render service definition
+│   │   ├── App.jsx
+│   │   ├── components/
+│   │   ├── config/brand.js
+│   │   ├── context/          # Auth, Cart, Toast
+│   │   ├── pages/
+│   │   └── services/api.js
+│   ├── env.example
+│   └── vercel.json
+└── server/                   # Express API
+    ├── server.js
+    ├── models/
+    ├── routes/
+    ├── controllers/
+    ├── services/             # orderPricing, notify
+    ├── scripts/seedDemo.js
+    ├── env.example
+    └── render.yaml
 ```
 
-There is **no root `package.json`**; install and run **each** of `frontend/` and `server/` separately.
+There is **no root `package.json`**. Install and run `frontend/` and `server/` separately.
 
 ---
 
-## Technology stack
+## Features (v1.0)
 
-| Layer | Choices |
-|-------|---------|
-| UI | React 19, Vite 7, Tailwind CSS 4, Radix icons, Lucide, Framer Motion |
-| Routing | React Router 7 |
-| HTTP | Axios (`frontend/src/services/api.js`) |
-| API | Express 5, `express-async-handler`, CORS, `body-parser` / `express.json` |
-| Data | Mongoose 8, MongoDB |
-| Auth | `bcryptjs`, `jsonwebtoken` (Bearer token) |
-| Payments | **Stripe** Checkout (live keys expected in production per `DEPLOYMENT.md`) |
+### Customer
+- Shop with category / search / sort
+- Product detail: standard size **or** custom measurements
+- Measurement profiles (wizard, inches/cm, validation, edit/duplicate)
+- Customization + tailor notes
+- Server-backed cart (size, customization, measurement **snapshot**)
+- Stripe checkout with measurement confirmation step
+- Order list + detail with visual production timeline
+- Fitting options (studio / delivery / alteration)
+- Alteration requests
+- Wishlist, reorder, reviews
+- Appointments with date/slot booking
+- In-app notification bell
+- Account dashboard
 
----
+### Admin
+- Overview stats
+- Production kanban
+- Order status updates (customer-facing notes + optional internal notes)
+- Alterations queue
+- Product create/list
+- Appointment management
 
-## Prerequisites
-
-- **Node.js** (LTS recommended, e.g. 20.x)
-- **npm** (comes with Node)
-- **MongoDB** — local instance or Atlas connection string
+### Production hardening
+- Server-side pricing (never trusts client totals)
+- Order references like `SWL-2026-000001`
+- Idempotent payment confirmation (refresh-safe)
+- Cart cleared only after successful payment
+- Payment cancel keeps cart for retry
+- Measurement snapshots immutable vs live profiles
+- Cancel rules enforced on API
+- Stock checks + decrement on paid confirm
+- Customer APIs hide internal tracking notes
 
 ---
 
 ## Local development
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
-cd tailoring-web
-
-# Backend dependencies
-cd server
-npm install
-
-# Frontend dependencies
-cd ../frontend
-npm install
+cd server && npm install
+cd ../frontend && npm install
 ```
 
-### 2. Configure environment
+### 2. Environment
 
-- **Server**: copy `server/env.example` to `server/.env` and set at least `MONGO_URI` and `JWT_SECRET`. For checkout to work, add Stripe keys and `FRONTEND_BASE_URL` (see [Environment variables](#environment-variables)).
-- **Frontend**: copy `frontend/env.example` to `frontend/.env.local`. For local dev you can **omit** `VITE_API_BASE_URL` so the app uses the default `/api` base URL (recommended with the Vite proxy).
+**`server/.env`** (from `server/env.example`):
 
-### 3. Run MongoDB
+| Variable | Purpose |
+|----------|---------|
+| `PORT` | Default `5000` |
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `FRONTEND_BASE_URL` | e.g. `http://localhost:5173` |
+| `NODE_ENV` | `development` / `production` |
 
-Point `MONGO_URI` at your database (e.g. `mongodb://127.0.0.1:27017/tailoring_web` for a local default).
+**`frontend/.env.local`** (recommended for local):
 
-### 4. Start backend and frontend (two terminals)
-
-**Terminal A — API (port 5000 by default)**
-
-```bash
-cd server
-npm run dev
+```env
+VITE_API_BASE_URL=/api
 ```
 
-Uses `nodemon` to restart on file changes (`server/package.json`).
+Vite proxies `/api` → `http://localhost:5000`. For production, set this to your Render URL ending in `/api`.
 
-**Terminal B — Vite dev server (port 5173)**
+### 3. Run (two terminals)
 
 ```bash
-cd frontend
-npm run dev
+# Terminal A
+cd server && npm run dev
+
+# Terminal B
+cd frontend && npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
 
-The Vite config proxies `/api` to `http://localhost:5000`, so the browser talks to the same origin for API calls when `VITE_API_BASE_URL` is unset — **no CORS configuration needed for that setup**.
+### 4. Seed demo data
 
-> **Note:** If you set `VITE_API_BASE_URL` to `http://localhost:5000/api` (full URL), the browser will call the API on a different origin. The production `server.js` CORS list is tuned for the deployed frontend URL; for that hybrid setup you would need to add `http://localhost:5173` to the server’s CORS `origin` configuration. Prefer the proxy + relative `/api` for local work.
+```bash
+cd server
+node scripts/seedDemo.js
+```
 
----
+| Role | Email | Password |
+|------|-------|----------|
+| Customer | `demo@stitchingwithlove.in` | `Demo1234!` |
+| Admin | `admin@stitchingwithlove.in` | `Admin1234!` |
 
-## Environment variables
-
-### Backend (`server/.env`)
-
-| Variable | Purpose |
-|----------|---------|
-| `PORT` | HTTP port (default `5000`) |
-| `NODE_ENV` | `development` or `production` |
-| `MONGO_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret for signing JWTs (use a long random string in production) |
-| `STRIPE_SECRET_KEY` | Stripe secret key — required for `/api/payments/*` |
-| `FRONTEND_BASE_URL` | Used in Stripe success/cancel URLs (e.g. `http://localhost:5173` locally) |
-| `SERVE_FRONTEND` | Set to `true` with `NODE_ENV=production` only if you build the SPA into `frontend/dist` next to the server and want Express to serve static files (optional combined hosting) |
-
-Optional (see [Optional / legacy notes](#optional--legacy-notes)):
-
-| Variable | Purpose |
-|----------|---------|
-| `RAZORPAY_KEY_ID` | Razorpay (not wired to current checkout UI) |
-| `RAZORPAY_KEY_SECRET` | Razorpay |
-
-### Frontend (`frontend/.env.local`)
-
-| Variable | Purpose |
-|----------|---------|
-| `VITE_API_BASE_URL` | Base URL for API calls, **must include `/api` suffix** if set, e.g. `https://your-backend.onrender.com/api`. If unset, defaults to `/api` (ideal for local dev with Vite proxy). |
-
-Vite only exposes variables prefixed with `VITE_`.
+Demo seed includes products, a measurement profile, wishlist, an active stitching order, and a delivered order.
 
 ---
 
-## How the app fits together
+## Main routes
 
-1. **Authentication** — On login/register, the API returns a JWT. The frontend stores it (e.g. `localStorage`) and Axios attaches `Authorization: Bearer <token>` (`api.js`). A `401` response clears auth and sends the user to `/login`.
-
-2. **Cart** — Cart is persisted per user on the server (`Cart` model). Adding or updating quantities requires a logged-in session.
-
-3. **Checkout** — `Checkout.jsx` calls `POST /api/payments/create-session` with line items and shipping-style fields. The server creates a **pending** `Order` and a Stripe Checkout Session, then returns `url` for redirect.
-
-4. **After payment** — Stripe redirects to `/payment/success?orderId=...&session_id=...`. The page calls `GET /api/payments/confirm` to verify the session and mark the order **paid**, then clears the cart client-side and routes to `/orders`.
-
-5. **Orders list** — `GET /api/orders/my` returns orders with `paymentStatus: 'paid'` for the current user.
+| Path | Description |
+|------|-------------|
+| `/` | Conversion homepage |
+| `/products`, `/products/:id` | Shop + product detail |
+| `/custom` | Custom tailoring landing |
+| `/measurements` | Measurement profiles |
+| `/cart`, `/checkout` | Bag + multi-step checkout |
+| `/orders`, `/orders/:id` | Orders + timeline |
+| `/wishlist` | Saved designs |
+| `/book` | Appointments |
+| `/account` | Customer dashboard |
+| `/admin` | Admin operations |
+| `/tryon` | Style preview (Fabric.js overlay — not AI try-on) |
 
 ---
 
-## Backend API overview
+## API overview
 
-Base path: **`/api`** (e.g. `GET /api/products`).
+Base: **`/api`**
 
-| Prefix | Auth | Purpose |
-|--------|------|---------|
-| `GET /` | No | Health-style message (`Backend Running`) on server root, not under `/api`. |
-| `/api/auth/register` | No | Create user, return JWT + user payload |
-| `/api/auth/login` | No | Login, return JWT |
-| `/api/auth/profile` | Yes | Current user document |
-| `/api/products` | No for GET | List / get by id |
-| `/api/products` POST/PUT/DELETE | Admin | Create / update / delete products |
-| `/api/cart` | Yes | Get cart |
-| `/api/cart/add`, `/api/cart/update` | Yes | Mutate cart |
-| `/api/orders/my` | Yes | Current user’s paid orders |
-| `/api/orders` | Admin | All orders |
-| `/api/orders/:id/track` | Admin | Update `orderStatus` + tracking note |
-| `/api/orders/:id/cancel` | Yes (owner) | Mark order cancelled |
-| `/api/appointments` POST | Yes | Create appointment request |
-| `/api/appointments/admin/list` | Admin | List appointments |
-| `/api/appointments/:id/status` | Admin | Set appointment status |
-| `/api/payments/create-session` | Yes | Stripe Checkout + pending order |
-| `/api/payments/confirm` | Yes | Confirm Stripe session, set order paid |
-
-Exact request/response shapes are defined in `server/controllers/` and `server/routes/`.
+| Area | Endpoints |
+|------|-----------|
+| Auth | `/auth/register`, `/auth/login`, `/auth/profile` |
+| Products | `GET/POST/PUT/DELETE /products` |
+| Cart | `GET /cart`, `POST /cart/add`, `PUT /cart/update`, `DELETE /cart` |
+| Payments | `POST /payments/create-session`, `GET /payments/confirm`, `POST /payments/cancel-pending` |
+| Orders | `/orders/my`, `/orders/:id`, `/orders/:id/track`, `/orders/:id/cancel`, fitting + alteration |
+| Measurements | `/measurements` CRUD + fields + duplicate |
+| Appointments | create, slots, `/my`, admin list/status |
+| Wishlist | `GET /wishlist`, `POST /wishlist/toggle` |
+| Notifications | list, mark read |
+| Reviews | `GET /reviews/product/:id`, `POST /reviews` |
+| Health | `GET /api/health` |
 
 ---
 
 ## Payments (Stripe)
 
-- Currency in Stripe session creation is **INR** (Indian Rupees) in code — align your Stripe account and product pricing with that.
-- You need `STRIPE_SECRET_KEY` and `FRONTEND_BASE_URL` set correctly so redirects return to your app.
-- For production keys and webhooks (if you add them later), follow your Stripe dashboard documentation; the current flow relies on session retrieval in `/confirm` after redirect.
+1. `POST /payments/create-session` — server prices items, creates **pending** order + Stripe session  
+2. Customer pays on Stripe  
+3. Redirect to `/payment/success` → `GET /payments/confirm` marks **paid** (idempotent)  
+4. Cart cleared; stock decremented for ready-made items  
+5. Cancel → `/payment/cancel` — pending order cancelled; **cart remains** for retry  
 
----
-
-## User roles and admin
-
-- Users have `role`: **`user`** (default) or **`admin`** (`server/models/User.js`).
-- New registrations are always **`user`**. To make an admin, update that user’s `role` to `admin` directly in MongoDB (or via a one-off script — there is no public “promote to admin” API).
-- Admin-only routes use `protect` + `admin` middleware (`server/middleware/authMiddleware.js`).
-
----
-
-## Background jobs
-
-- **Pending order cleanup** — `server/server.js` runs an interval (every 5 minutes) that sets `paymentStatus` to `cancelled` for **pending** orders older than **30 minutes** (Stripe sessions abandoned or never completed). This keeps the database tidy.
+Order IDs shown to customers: **`SWL-YYYY-NNNNNN`**.
 
 ---
 
 ## Deployment
 
-The project is set up for a common split:
+Split hosting:
 
-- **Frontend**: Vercel (root directory `frontend`, output `dist`).
-- **Backend**: Render (root directory `server`), with env vars for MongoDB, JWT, Stripe, and frontend URL.
+- **Frontend** → Vercel (`frontend/`, build `npm run build`, output `dist`)
+- **Backend** → Render (`server/`, start `npm start`)
+- **Database** → MongoDB Atlas
 
-Follow the detailed checklist in **[DEPLOYMENT.md](./DEPLOYMENT.md)** (build commands, CORS, Atlas IP allowlist, Stripe live vs test).
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full checklist.
 
-**Important:** In `server/server.js`, the CORS `origin` is set to a specific production frontend URL. After you deploy your own site, **update that origin** to your real Vercel (or other) URL, or local development will not be able to call the API from a different deployed domain.
+After deploy, set:
+
+- Frontend `VITE_API_BASE_URL` → `https://<your-render>.onrender.com/api`
+- Backend `FRONTEND_BASE_URL` → your Vercel URL
+- Backend CORS / allowed origins to match the Vercel domain
+- Stripe keys (test locally, live in production)
+- Atlas network access for Render
+
+Then run production smoke:
+
+1. Stripe success / cancel / refresh  
+2. Admin status → customer notification → timeline  
+3. Payment → navigate → browser Back (no duplicate order)
+
+---
+
+## Background jobs
+
+Every 5 minutes, pending unpaid orders older than 30 minutes are auto-cancelled (`server/server.js`).
+
+---
+
+## Scripts
+
+**Server**
+
+| Command | Action |
+|---------|--------|
+| `npm run dev` | Nodemon |
+| `npm start` | Production |
+| `node scripts/seedDemo.js` | Seed demo + admin |
+
+**Frontend**
+
+| Command | Action |
+|---------|--------|
+| `npm run dev` | Vite |
+| `npm run build` | Production build |
+| `npm run preview` | Preview build |
+
+---
+
+## Interview / portfolio story
+
+```text
+React + Vite UI
+      ↓
+Express REST API + JWT
+      ↓
+MongoDB / Mongoose
+      ↓
+Server-side pricing + Stripe
+      ↓
+Measurement profiles + snapshots
+      ↓
+Customization + tailor notes
+      ↓
+Production workflow + notifications
+      ↓
+Fittings / alterations
+      ↓
+Wishlist · reorder · reviews
+```
+
+**Style Preview** (`/tryon`) is a Fabric.js image overlay for inspiration — not computer-vision virtual try-on.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | What to check |
-|---------|----------------|
-| API calls fail in browser with CORS | Frontend origin must match server CORS config, or use Vite `/api` proxy locally without a full cross-origin API URL. |
-| `503` on payment | `STRIPE_SECRET_KEY` missing or invalid (`server/utils/stripe.js`). |
-| Mongo errors | `MONGO_URI`, network, Atlas IP allowlist (`0.0.0.0/0` for managed hosts like Render). |
-| Always redirected to login | Token expired or invalid; JWT default expiry is **7 days** in `authController.js`. |
-| Empty products | Seed or create products via an **admin** account and `POST /api/products`. |
+| Symptom | Check |
+|---------|--------|
+| CORS errors | Use `/api` + Vite proxy locally; set production origin on the API |
+| Payment 503 | `STRIPE_SECRET_KEY` missing |
+| Mongo errors | `MONGO_URI`, Atlas IP allowlist |
+| Empty shop | Run `seedDemo.js` or create products as admin |
+| Redirected to login | JWT expired (7 days) or missing token |
 
 ---
 
-## Optional / legacy notes
+## License
 
-- **Razorpay** — The server includes Razorpay utilities and controller logic (`server/utils/razorpay.js`, parts of `orderController.js`), but the **current checkout page uses Stripe only**. The `orderRoutes.js` file does not register Razorpay payment routes; treat Razorpay as optional / future use unless you wire it back in.
-- **Frontend `package.json` scripts** — Entries like `dev:server` / `dev:all` reference a non-existent `server/index.js` inside `frontend/`. Use the real **`server/`** app with `npm run dev` or `npm start` from `server/` instead.
-- **Combined hosting** — If `NODE_ENV=production` and `SERVE_FRONTEND=true`, Express can serve `frontend/dist`. Most teams still deploy the SPA separately (e.g. Vercel) as documented.
+No root LICENSE file yet — add one if you open-source the project.
 
 ---
 
-## Scripts reference
-
-**`server/package.json`**
-
-| Script | Command |
-|--------|---------|
-| `npm start` | `node server.js` |
-| `npm run dev` | `nodemon server.js` |
-
-**`frontend/package.json`**
-
-| Script | Command |
-|--------|---------|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | ESLint |
-
----
-
-## Contributing and license
-
-This repository does not include a root LICENSE file in the tree that was scanned. Add one if you open-source the project.
-
-For code style, match existing patterns: ES modules (`"type": "module"`), async route handlers, and the same naming as surrounding files.
-
----
-
-**Summary:** Install `server` and `frontend`, configure `.env` / `.env.local`, run MongoDB, start Express on port 5000 and Vite on 5173, create an admin user in the database if you need product and order management, and use Stripe for checkout. Use **[DEPLOYMENT.md](./DEPLOYMENT.md)** when going to production.
+**v1.0 summary:** Install both apps, configure env, seed demo accounts, run Express `:5000` + Vite `:5173`, complete the measurement → checkout → tracking loop. Deploy with Vercel + Render when production smoke is ready.
